@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 import sqlite3
 import pandas as pd
-import requests  # 🔌 API externa
+import requests
 
 app = Flask(__name__)
 
