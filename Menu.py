@@ -111,12 +111,13 @@ def generar_csv():
     response = requests.get(f"{BASE_URL}/generar_csv")
     mostrar_respuesta(response)
 
+# Menús por tipo de usuario
 def menu_comprador():
     while True:
         print(f"\n🛒 Menú del Comprador ({usuario_actual['nombre']})")
         print("1. Listar productos")
         print("2. Comprar producto")
-        print("3. Salir")
+        print("3. Cerrar sesión")
         opcion = input("Seleccione una opción: ")
 
         if opcion == "1":
@@ -124,8 +125,8 @@ def menu_comprador():
         elif opcion == "2":
             comprar_producto()
         elif opcion == "3":
-            print("👋 Hasta luego.")
-            break
+            print("🔒 Cerrando sesión...")
+            return
         else:
             print("Opción inválida.")
 
@@ -136,7 +137,7 @@ def menu_vendedor():
         print("2. Actualizar producto")
         print("3. Eliminar producto")
         print("4. Generar CSV de ventas")
-        print("5. Salir")
+        print("5. Cerrar sesión")
         opcion = input("Seleccione una opción: ")
 
         if opcion == "1":
@@ -148,17 +149,18 @@ def menu_vendedor():
         elif opcion == "4":
             generar_csv()
         elif opcion == "5":
-            print("👋 Hasta luego.")
-            break
+            print("🔒 Cerrando sesión...")
+            return
         else:
             print("Opción inválida.")
 
+# Menú de inicio
 def menu_inicio():
     while True:
         print("\n🔐 Bienvenido a AlimSave")
         print("1. Registrarse")
         print("2. Iniciar sesión")
-        print("3. Salir")
+        print("0. Salir del programa")
         opcion = input("Seleccione una opción: ")
 
         if opcion == "1":
@@ -167,21 +169,28 @@ def menu_inicio():
         elif opcion == "2":
             if login_usuario():
                 break
-        elif opcion == "3":
-            print("👋 Saliendo del sistema.")
+        elif opcion == "0":
+            print("👋 Hasta pronto.")
             exit()
         else:
             print("Opción inválida.")
 
+# Control general del flujo
 def main():
-    menu_inicio()
+    while True:
+        menu_inicio()
 
-    if usuario_actual["tipo"] == "comprador":
-        menu_comprador()
-    elif usuario_actual["tipo"] == "vendedor":
-        menu_vendedor()
-    else:
-        print("⚠️ Tipo de usuario no reconocido.")
+        if usuario_actual["tipo"] == "comprador":
+            menu_comprador()
+        elif usuario_actual["tipo"] == "vendedor":
+            menu_vendedor()
+        else:
+            print("⚠️ Tipo de usuario no reconocido.")
+
+        # Resetear sesión
+        usuario_actual["id"] = None
+        usuario_actual["nombre"] = None
+        usuario_actual["tipo"] = None
 
 if __name__ == "__main__":
     main()
