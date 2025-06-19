@@ -9,6 +9,12 @@ print(respuesta.json())
 '''
 BASE_URL = "http://localhost:5000"
 
+usuario_actual = {
+    "id": None,
+    "nombre": None,
+    "tipo": None
+}
+
 def mostrar_respuesta(response):
     print(f"\nCódigo de estado: {response.status_code}")
     try:
@@ -17,36 +23,67 @@ def mostrar_respuesta(response):
         print("⚠️ La respuesta no es JSON:")
         print(response.text)
 
-def listar_productos():
-    response = requests.get(f"{BASE_URL}/productos")
-    mostrar_respuesta(response)
-
 def registrar_usuario():
     nombre = input("Nombre del usuario: ")
     tipo = input("Tipo de usuario (vendedor o comprador): ").lower()
     data = {"nombre": nombre, "tipo": tipo}
     response = requests.post(f"{BASE_URL}/registrar_usuario", json=data)
-    mostrar_respuesta(response)
+    if response.status_code == 200:
+        resultado = response.json()
+        usuario_actual["id"] = resultado["usuario_id"]
+        usuario_actual["nombre"] = nombre
+        usuario_actual["tipo"] = tipo
+        print(f"✅ Registrado como {tipo} con ID {usuario_actual['id']}")
+        return True
+    else:
+        mostrar_respuesta(response)
+        return False
 
 def login_usuario():
     nombre = input("Nombre del usuario: ")
     data = {"nombre": nombre}
     response = requests.post(f"{BASE_URL}/login_usuario", json=data)
+    if response.status_code == 200:
+        resultado = response.json()
+        usuario_actual["id"] = resultado["usuario_id"]
+        usuario_actual["nombre"] = nombre
+        usuario_actual["tipo"] = resultado["tipo"]
+        print(f"🔓 Login exitoso como {usuario_actual['tipo']} (ID: {usuario_actual['id']})")
+        return True
+    else:
+        mostrar_respuesta(response)
+        return False
+
+# Funciones para compradores
+def listar_productos():
+    response = requests.get(f"{BASE_URL}/productos")
     mostrar_respuesta(response)
 
+def comprar_producto():
+    producto_id = input("ID del producto a comprar: ")
+    cantidad = int(input("Cantidad a comprar: "))
+
+    data = {
+        "cantidad": cantidad,
+        "comprador_id": usuario_actual["id"]
+    }
+
+    response = requests.post(f"{BASE_URL}/comprar/{producto_id}", json=data)
+    mostrar_respuesta(response)
+
+# Funciones para vendedores
 def crear_producto():
     nombre = input("Nombre del producto: ")
     precio = float(input("Precio del producto: "))
     cantidad = int(input("Cantidad: "))
     vencimiento = input("Fecha de vencimiento (YYYY-MM-DD): ")
-    vendedor_id = int(input("ID del vendedor (debe estar registrado como 'vendedor'): "))
 
     data = {
         "nombre": nombre,
         "precio": precio,
         "cantidad": cantidad,
         "vencimiento": vencimiento,
-        "vendedor_id": vendedor_id
+        "vendedor_id": usuario_actual["id"]
     }
 
     response = requests.post(f"{BASE_URL}/producto", json=data)
@@ -70,58 +107,81 @@ def eliminar_producto():
     response = requests.delete(f"{BASE_URL}/producto/{producto_id}")
     mostrar_respuesta(response)
 
-def comprar_producto():
-    producto_id = input("ID del producto a comprar: ")
-    cantidad = int(input("Cantidad a comprar: "))
-    comprador_id = int(input("ID del comprador (debe estar registrado como 'comprador'): "))
-
-    data = {
-        "cantidad": cantidad,
-        "comprador_id": comprador_id
-    }
-
-    response = requests.post(f"{BASE_URL}/comprar/{producto_id}", json=data)
-    mostrar_respuesta(response)
-
 def generar_csv():
     response = requests.get(f"{BASE_URL}/generar_csv")
     mostrar_respuesta(response)
 
-def menu():
+def menu_comprador():
     while True:
-        print("\n--- MENÚ DE ALIMSAVE ---")
+        print(f"\n🛒 Menú del Comprador ({usuario_actual['nombre']})")
         print("1. Listar productos")
-        print("2. Registrar usuario")
-        print("3. Login usuario")
-        print("4. Crear producto")
-        print("5. Actualizar producto")
-        print("6. Eliminar producto")
-        print("7. Comprar producto")
-        print("8. Generar CSV de ventas")
-        print("9. Salir")
+        print("2. Comprar producto")
+        print("3. Salir")
         opcion = input("Seleccione una opción: ")
 
         if opcion == "1":
             listar_productos()
         elif opcion == "2":
-            registrar_usuario()
-        elif opcion == "3":
-            login_usuario()
-        elif opcion == "4":
-            crear_producto()
-        elif opcion == "5":
-            actualizar_producto()
-        elif opcion == "6":
-            eliminar_producto()
-        elif opcion == "7":
             comprar_producto()
-        elif opcion == "8":
-            generar_csv()
-        elif opcion == "9":
-            print("👋 Saliendo del sistema.")
+        elif opcion == "3":
+            print("👋 Hasta luego.")
             break
         else:
-            print("Opción inválida. Intente de nuevo.")
+            print("Opción inválida.")
+
+def menu_vendedor():
+    while True:
+        print(f"\n📦 Menú del Vendedor ({usuario_actual['nombre']})")
+        print("1. Crear producto")
+        print("2. Actualizar producto")
+        print("3. Eliminar producto")
+        print("4. Generar CSV de ventas")
+        print("5. Salir")
+        opcion = input("Seleccione una opción: ")
+
+        if opcion == "1":
+            crear_producto()
+        elif opcion == "2":
+            actualizar_producto()
+        elif opcion == "3":
+            eliminar_producto()
+        elif opcion == "4":
+            generar_csv()
+        elif opcion == "5":
+            print("👋 Hasta luego.")
+            break
+        else:
+            print("Opción inválida.")
+
+def menu_inicio():
+    while True:
+        print("\n🔐 Bienvenido a AlimSave")
+        print("1. Registrarse")
+        print("2. Iniciar sesión")
+        print("3. Salir")
+        opcion = input("Seleccione una opción: ")
+
+        if opcion == "1":
+            if registrar_usuario():
+                break
+        elif opcion == "2":
+            if login_usuario():
+                break
+        elif opcion == "3":
+            print("👋 Saliendo del sistema.")
+            exit()
+        else:
+            print("Opción inválida.")
+
+def main():
+    menu_inicio()
+
+    if usuario_actual["tipo"] == "comprador":
+        menu_comprador()
+    elif usuario_actual["tipo"] == "vendedor":
+        menu_vendedor()
+    else:
+        print("⚠️ Tipo de usuario no reconocido.")
 
 if __name__ == "__main__":
-    menu()
+    main()
