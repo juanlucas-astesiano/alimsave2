@@ -7,7 +7,7 @@ app = Flask(__name__)
 
 # Inicialización de la base de datos
 def crear_base_datos():
-    conn = sqlite3.connect('alimsave.db')
+    conn = sqlite3.connect('alimsave2.db')
     cursor = conn.cursor()
 
     cursor.execute('''
@@ -18,6 +18,7 @@ def crear_base_datos():
         )
     ''')
 
+    # Tabla de productos con categoría y código de barras
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS productos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,10 +27,13 @@ def crear_base_datos():
             cantidad INTEGER NOT NULL,
             precio REAL NOT NULL,
             vendedor_id INTEGER,
+            categoria TEXT,
+            codigo_barras TEXT,
             FOREIGN KEY (vendedor_id) REFERENCES usuarios(id)
         )
     ''')
 
+    # Tabla de ventas
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS ventas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -71,7 +75,7 @@ def registrar_usuario():
     if not nombre or not tipo:
         return jsonify({'error': 'Datos incompletos'}), 400
 
-    conn = sqlite3.connect('alimsave.db')
+    conn = sqlite3.connect('alimsave2.db')
     cursor = conn.cursor()
     cursor.execute("INSERT INTO usuarios (nombre, tipo) VALUES (?, ?)", (nombre, tipo))
     usuario_id = cursor.lastrowid
@@ -85,7 +89,7 @@ def login_usuario():
     data = request.get_json()
     nombre = data.get('nombre')
 
-    conn = sqlite3.connect('alimsave.db')
+    conn = sqlite3.connect('alimsave2.db')
     cursor = conn.cursor()
     cursor.execute("SELECT id, tipo FROM usuarios WHERE nombre = ?", (nombre,))
     usuario = cursor.fetchone()
@@ -103,7 +107,7 @@ def cargar_producto():
     if not all(c in data for c in campos):
         return jsonify({'error': 'Datos incompletos'}), 400
 
-    conn = sqlite3.connect('alimsave.db')
+    conn = sqlite3.connect('alimsave2.db')
     cursor = conn.cursor()
     cursor.execute("SELECT tipo FROM usuarios WHERE id = ?", (data['vendedor_id'],))
     vendedor = cursor.fetchone()
@@ -131,9 +135,18 @@ def cargar_producto():
 
     # 📝 Insertar producto
     cursor.execute('''
-        INSERT INTO productos (nombre, vencimiento, cantidad, precio, vendedor_id)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (data['nombre'], data['vencimiento'], data['cantidad'], data['precio'], data['vendedor_id']))
+    INSERT INTO productos (
+        nombre, vencimiento, cantidad, precio, vendedor_id, categoria, codigo_barras
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+''', (
+    data['nombre'],
+    data['vencimiento'],
+    data['cantidad'],
+    data['precio'],
+    data['vendedor_id'],
+    categoria,
+    codigo_barras
+))
     conn.commit()
     conn.close()
 
@@ -145,21 +158,29 @@ def cargar_producto():
 
 @app.route('/productos', methods=['GET'])
 def listar_productos():
-    conn = sqlite3.connect('alimsave.db')
+    conn = sqlite3.connect('alimsave2.db')
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM productos")
     productos = cursor.fetchall()
     conn.close()
+
     lista = [{
-        'id': p[0], 'nombre': p[1], 'vencimiento': p[2],
-        'cantidad': p[3], 'precio': p[4], 'vendedor_id': p[5]
+        'id': p[0],
+        'nombre': p[1],
+        'vencimiento': p[2],
+        'cantidad': p[3],
+        'precio': p[4],
+        'vendedor_id': p[5],
+        'categoria': p[6],
+        'codigo_barras': p[7]
     } for p in productos]
+
     return jsonify(lista)
 
 @app.route('/producto/<int:id>', methods=['PUT'])
 def actualizar_producto(id):
     data = request.get_json()
-    conn = sqlite3.connect('alimsave.db')
+    conn = sqlite3.connect('alimsave2.db')
     cursor = conn.cursor()
     cursor.execute("UPDATE productos SET cantidad = ?, precio = ? WHERE id = ?",
                    (data.get('cantidad'), data.get('precio'), id))
@@ -169,7 +190,7 @@ def actualizar_producto(id):
 
 @app.route('/producto/<int:id>', methods=['DELETE'])
 def eliminar_producto(id):
-    conn = sqlite3.connect('alimsave.db')
+    conn = sqlite3.connect('alimsave2.db')
     cursor = conn.cursor()
     cursor.execute("DELETE FROM productos WHERE id = ?", (id,))
     conn.commit()
@@ -182,7 +203,7 @@ def comprar(id):
     cantidad = data.get('cantidad')
     comprador_id = data.get('comprador_id')
 
-    conn = sqlite3.connect('alimsave.db')
+    conn = sqlite3.connect('alimsave2.db')
     cursor = conn.cursor()
 
     cursor.execute("SELECT tipo FROM usuarios WHERE id = ?", (comprador_id,))
@@ -206,7 +227,7 @@ def comprar(id):
 
 @app.route('/generar_csv', methods=['GET'])
 def generar_csv():
-    conn = sqlite3.connect('alimsave.db')
+    conn = sqlite3.connect('alimsave2.db')
     cursor = conn.cursor()
     cursor.execute('''
         SELECT productos.nombre, ventas.cantidad, ventas.precio_total

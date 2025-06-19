@@ -2,7 +2,7 @@ import sqlite3
 
 def crear_base_datos():
     try:
-        conn = sqlite3.connect('alimsave.db')
+        conn = sqlite3.connect('alimsave2.db')
         cursor = conn.cursor()
 
         # Crear tabla usuarios
