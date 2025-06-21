@@ -1,4 +1,6 @@
 import requests
+import pandas as pd
+
 
 
 #este es el GET que nos trae todos los productos.
@@ -57,7 +59,37 @@ def login_usuario():
 # Funciones para compradores
 def listar_productos():
     response = requests.get(f"{BASE_URL}/productos")
-    mostrar_respuesta(response)
+    print(f"\nCódigo de estado: {response.status_code}")
+
+    try:
+        data = response.json()
+
+        # Asegurarse de que recibimos una lista (sin 'get' porque data ya es la lista)
+        if isinstance(data, list):
+            productos = data
+        elif isinstance(data, dict):
+            productos = data.get("productos", [])
+        else:
+            productos = []
+
+        if not productos:
+            print("⚠️ No hay productos disponibles.")
+            return
+
+        import pandas as pd
+        df = pd.DataFrame(productos)
+
+        # Eliminar columnas que no quieras mostrar
+        columnas_a_mostrar = ["id", "nombre", "precio", "cantidad", "vencimiento", "codigo_barras"]
+        df = df[columnas_a_mostrar]
+
+        print("\n📦 Lista de productos:")
+        print(df.to_string(index=False))  # Sin índice numérico a la izquierda
+
+    except ValueError:
+        print("⚠️ La respuesta no es JSON:")
+        print(response.text)
+
 
 def comprar_producto():
     producto_id = input("ID del producto a comprar: ")

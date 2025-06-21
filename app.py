@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify
 import sqlite3
 import pandas as pd
 import requests
+import matplotlib.pyplot as plt
+
 
 app = Flask(__name__)
 
@@ -197,33 +199,35 @@ def eliminar_producto(id):
     conn.close()
     return jsonify({'mensaje': 'Producto eliminado'})
 
-@app.route('/comprar/<int:id>', methods=['POST'])
-def comprar(id):
+@app.route('/comprar', methods=['POST'])
+def comprar():
     data = request.get_json()
-    cantidad = data.get('cantidad')
-    comprador_id = data.get('comprador_id')
+    producto_id = data.get("producto_id")
+    comprador_id = data.get("comprador_id")
+    cantidad = data.get("cantidad")
 
     conn = sqlite3.connect('alimsave2.db')
     cursor = conn.cursor()
 
-    cursor.execute("SELECT tipo FROM usuarios WHERE id = ?", (comprador_id,))
-    tipo = cursor.fetchone()
-    if not tipo or tipo[0] != 'comprador':
-        return jsonify({'error': 'Solo los compradores pueden comprar'}), 403
-
-    cursor.execute("SELECT cantidad, precio FROM productos WHERE id = ?", (id,))
+    cursor.execute("SELECT cantidad, precio FROM productos WHERE id = ?", (producto_id,))
     producto = cursor.fetchone()
+
     if not producto or producto[0] < cantidad:
+        conn.close()
         return jsonify({'error': 'Stock insuficiente o producto no encontrado'}), 400
 
     nuevo_stock = producto[0] - cantidad
     precio_total = cantidad * producto[1]
-    cursor.execute("UPDATE productos SET cantidad = ? WHERE id = ?", (nuevo_stock, id))
+
+    cursor.execute("UPDATE productos SET cantidad = ? WHERE id = ?", (nuevo_stock, producto_id))
     cursor.execute("INSERT INTO ventas (producto_id, comprador_id, cantidad, precio_total) VALUES (?, ?, ?, ?)",
-                   (id, comprador_id, cantidad, precio_total))
+                   (producto_id, comprador_id, cantidad, precio_total))
+
     conn.commit()
     conn.close()
-    return jsonify({'mensaje': 'Compra realizada'})
+
+    return jsonify({'mensaje': 'Compra realizada'}), 200
+
 
 @app.route('/generar_csv', methods=['GET'])
 def generar_csv():
@@ -239,6 +243,50 @@ def generar_csv():
     df = pd.DataFrame(data, columns=['producto', 'cantidad', 'precio_total'])
     df.to_csv('datos_ventas.csv', index=False)
     return jsonify({'mensaje': 'Archivo CSV generado'})
+
+
+
+@app.route('/grafico_categorias/<int:vendedor_id>', methods=['GET'])
+def grafico_categorias_por_vendedor(vendedor_id):
+    # Conectarse a la base de datos y traer ventas del vendedor
+    conn = sqlite3.connect('alimsave2.db')
+    query = """
+        SELECT v.categoria, v.precio_total
+        FROM ventas v
+        JOIN productos p ON v.producto_id = p.id
+        WHERE p.vendedor_id = ?
+    """
+    df = pd.read_sql_query(query, conn, params=(vendedor_id,))
+    conn.close()
+
+    # Verificar si hay datos
+    if df.empty:
+        return jsonify({"mensaje": "NO TENES VENTAS REALIZADAS"}), 404
+
+    # Agrupar y resumir datos por categoría
+    resumen = df.groupby("categoria", as_index=False).sum()
+
+    # Crear gráfico de barras
+    plt.figure(figsize=(8, 6))
+    plt.bar(resumen["categoria"], resumen["precio_total"], color='lightblue')
+    plt.title(f'Ventas por Categoría del Vendedor {vendedor_id}')
+    plt.xlabel('Categoría')
+    plt.ylabel('Monto Total Vendido ($)')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+
+    # Guardar imagen localmente
+    archivo_salida = f"grafico_categorias_vendedor_{vendedor_id}.png"
+    plt.savefig(archivo_salida)
+    plt.close()
+
+    # Retornar info al cliente
+    return jsonify({
+        "mensaje": "✅ Gráfico generado exitosamente",
+        "archivo": archivo_salida
+    })
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
