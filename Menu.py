@@ -141,8 +141,10 @@ def eliminar_producto():
     mostrar_respuesta(response)
 
 def generar_csv():
-    response = requests.get(f"{BASE_URL}/generar_csv")
+    vendedor_id = usuario_actual["id"]
+    response = requests.get(f"{BASE_URL}/generar_csv/{vendedor_id}")
     mostrar_respuesta(response)
+
     
 def generar_grafico_categorias():
     vendedor_id = usuario_actual["id"]

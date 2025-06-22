@@ -229,20 +229,27 @@ def comprar():
     return jsonify({'mensaje': 'Compra realizada'}), 200
 
 
-@app.route('/generar_csv', methods=['GET'])
-def generar_csv():
+@app.route('/generar_csv/<int:vendedor_id>', methods=['GET'])
+def generar_csv(vendedor_id):
     conn = sqlite3.connect('alimsave2.db')
     cursor = conn.cursor()
     cursor.execute('''
         SELECT productos.nombre, ventas.cantidad, ventas.precio_total
         FROM ventas
         JOIN productos ON ventas.producto_id = productos.id
-    ''')
+        WHERE productos.vendedor_id = ?
+    ''', (vendedor_id,))
     data = cursor.fetchall()
     conn.close()
+
+    if not data:
+        return jsonify({'mensaje': 'Este vendedor no tiene ventas registradas'})
+
     df = pd.DataFrame(data, columns=['producto', 'cantidad', 'precio_total'])
-    df.to_csv('datos_ventas.csv', index=False)
-    return jsonify({'mensaje': 'Archivo CSV generado'})
+    nombre_archivo = f'datos_ventas_vendedor_{vendedor_id}.csv'
+    df.to_csv(nombre_archivo, index=False)
+
+    return jsonify({'mensaje': 'Archivo CSV generado', 'archivo': nombre_archivo})
 
 
 
