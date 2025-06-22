@@ -100,7 +100,8 @@ def comprar_producto():
         "comprador_id": usuario_actual["id"]
     }
 
-    response = requests.post(f"{BASE_URL}/comprar/{producto_id}", json=data)
+    data["producto_id"] = int(producto_id)
+    response = requests.post(f"{BASE_URL}/comprar", json=data)
     mostrar_respuesta(response)
 
 # Funciones para vendedores
@@ -142,6 +143,11 @@ def eliminar_producto():
 def generar_csv():
     response = requests.get(f"{BASE_URL}/generar_csv")
     mostrar_respuesta(response)
+    
+def generar_grafico_categorias():
+    vendedor_id = usuario_actual["id"]
+    response = requests.get(f"{BASE_URL}/grafico_categorias/{vendedor_id}")
+    mostrar_respuesta(response)
 
 # Menús por tipo de usuario
 def menu_comprador():
@@ -170,6 +176,7 @@ def menu_vendedor():
         print("3. Eliminar producto")
         print("4. Generar CSV de ventas")
         print("5. Cerrar sesión")
+        print("6. Generar grafico")
         opcion = input("Seleccione una opción: ")
 
         if opcion == "1":
@@ -183,6 +190,8 @@ def menu_vendedor():
         elif opcion == "5":
             print("🔒 Cerrando sesión...")
             return
+        elif opcion == "6":
+            generar_grafico_categorias()
         else:
             print("Opción inválida.")
 

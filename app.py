@@ -248,43 +248,58 @@ def generar_csv():
 
 @app.route('/grafico_categorias/<int:vendedor_id>', methods=['GET'])
 def grafico_categorias_por_vendedor(vendedor_id):
-    # Conectarse a la base de datos y traer ventas del vendedor
-    conn = sqlite3.connect('alimsave2.db')
-    query = """
-        SELECT v.categoria, v.precio_total
-        FROM ventas v
-        JOIN productos p ON v.producto_id = p.id
-        WHERE p.vendedor_id = ?
-    """
-    df = pd.read_sql_query(query, conn, params=(vendedor_id,))
-    conn.close()
+    try:
+        conn = sqlite3.connect('alimsave2.db')
 
-    # Verificar si hay datos
-    if df.empty:
-        return jsonify({"mensaje": "NO TENES VENTAS REALIZADAS"}), 404
+        query = """
+            SELECT p.categoria, SUM(v.precio_total) AS total_categoria
+            FROM ventas v
+            JOIN productos p ON v.producto_id = p.id
+            WHERE p.vendedor_id = ?
+            GROUP BY p.categoria
+        """
+        df = pd.read_sql_query(query, conn, params=(vendedor_id,))
+        conn.close()
 
-    # Agrupar y resumir datos por categoría
-    resumen = df.groupby("categoria", as_index=False).sum()
+        if df.empty:
+            return jsonify({"mensaje": "NO TENES VENTAS REALIZADAS"}), 404
 
-    # Crear gráfico de barras
-    plt.figure(figsize=(8, 6))
-    plt.bar(resumen["categoria"], resumen["precio_total"], color='lightblue')
-    plt.title(f'Ventas por Categoría del Vendedor {vendedor_id}')
-    plt.xlabel('Categoría')
-    plt.ylabel('Monto Total Vendido ($)')
-    plt.xticks(rotation=45)
-    plt.tight_layout()
+        # Mostrar para diagnosticar (podés comentar luego)
+        print(df)
 
-    # Guardar imagen localmente
-    archivo_salida = f"grafico_categorias_vendedor_{vendedor_id}.png"
-    plt.savefig(archivo_salida)
-    plt.close()
+        def dividir_texto_en_n_lineas(texto, n=3):
+            longitud = len(texto)
+            if longitud <= n:
+                return texto
+            tamaño_linea = (longitud + n - 1) // n
+            lineas = [texto[i*tamaño_linea:(i+1)*tamaño_linea] for i in range(n)]
+            return '\n'.join(lineas)
 
-    # Retornar info al cliente
-    return jsonify({
-        "mensaje": "✅ Gráfico generado exitosamente",
-        "archivo": archivo_salida
-    })
+        df['categoria'] = df['categoria'].apply(lambda x: dividir_texto_en_n_lineas(x, 3))
+
+        plt.figure(figsize=(10, max(4, len(df) * 0.8)))
+        plt.barh(df['categoria'], df['total_categoria'], color='skyblue')
+        for i, (valor, categoria) in enumerate(zip(df['total_categoria'], df['categoria'])):
+            plt.text(valor + max(df['total_categoria'])*0.01, i, f"${valor:.2f}", va='center', fontsize=9)
+        plt.title(f'Ventas por Categoría del Vendedor {vendedor_id}')
+        plt.xlabel('Monto Total Vendido ($)')
+        plt.ylabel('Categoría')
+        plt.tight_layout(pad=3.0)
+        plt.subplots_adjust(left=0.3)
+
+        archivo_salida = f"grafico_categorias_vendedor_{vendedor_id}.png"
+        plt.savefig(archivo_salida)
+        plt.close()
+
+        return jsonify({
+            "mensaje": "✅ Gráfico generado exitosamente",
+            "archivo": archivo_salida
+        })
+
+    except Exception as e:
+        print(f"❌ Error en el endpoint gráfico: {e}")
+        return jsonify({"error": "Ocurrió un error al generar el gráfico"}), 500
+
 
 
 
